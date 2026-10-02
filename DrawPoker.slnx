@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="DrawPoker/DrawPoker.vcxproj" />
+  <Project Path="DrawPoker/DrawPoker.vcxproj" Id="f129528b-863c-4600-9b86-017619e7ee5e" />
 </Solution>
