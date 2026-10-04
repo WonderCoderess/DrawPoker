@@ -192,6 +192,21 @@ public:
 		player.displayHand();
 	}
 
+	bool isFlush() const {
+		if (hand.size() != 5) {
+			throw runtime_error("Hand must contain exactly 5 cards to check for a flush.");
+		}
+
+		int firstSuit = hand[0].getSuit();
+
+		for (const Card& card : hand) {
+			if (card.getSuit() != firstSuit) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 private:
 	vector<Card> hand;
 };
