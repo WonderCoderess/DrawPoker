@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#define RUN_TESTS
 
 using namespace std;
 
@@ -35,7 +36,7 @@ public:
 			break;
 		default:
 			cout << rank;
-		} 
+		}
 		cout << " ";
 		switch (suit) {
 		case 0:
@@ -53,7 +54,7 @@ public:
 		default:
 			cout << "Unknown suit";
 		}
-	} 
+	}
 
 	// Getters for rank and suit
 	int getRank() const {
@@ -80,7 +81,7 @@ public:
 			}
 		}
 
-	} 
+	}
 
 	// Display all cards in the deck.
 	void display() const {
@@ -88,14 +89,14 @@ public:
 			card.display();
 			cout << endl;
 		}
-	} 
+	}
 
 	// Shuffle the deck using a random number generator.
 	void shuffleCards() {
-		random_device rd; 
-		mt19937 generator(rd()); 
+		random_device rd;
+		mt19937 generator(rd());
 		shuffle(cards.begin(), cards.end(), generator);
-	} 
+	}
 
 	Card drawCard() {
 		if (cards.empty()) {
@@ -113,6 +114,18 @@ public:
 
 private:
 	vector<Card> cards;
+};
+
+enum class HandRank { // on najsilniejszego
+	HighCard,
+	OnePair,
+	TwoPairs,
+	ThreeOfAKind,
+	Straight,
+	Flush,
+	FullHouse,
+	FourOfAKind,
+	StraightFlush
 };
 
 class Player {
@@ -146,7 +159,7 @@ public:
 
 		int count = 0;
 		cout << "How many cards would you like to exchange? (0-5)" << endl;
-		
+
 		if (!GetNumber(0, 5, count)) {
 			return;
 		}
@@ -167,7 +180,7 @@ public:
 			if (!GetNumber(1, 5, cardNumber)) {
 				return;
 			}
-			
+
 			for (int cardIndex : selectedCardsToReplace) {
 				if (cardIndex == cardNumber) {
 					alreadySelected = true;
@@ -183,19 +196,17 @@ public:
 
 			selectedCardsToReplace.push_back(cardNumber);
 		}
-			//Replace cards only after the selection is complete to avoid index issues
-			for (int cardIndex : selectedCardsToReplace) {
-				player.replaceCard(cardIndex, deck);
-			
+		//Replace cards only after the selection is complete to avoid index issues
+		for (int cardIndex : selectedCardsToReplace) {
+			player.replaceCard(cardIndex, deck);
+
 		}
 		cout << "Player's hand after exchange:" << endl;
 		player.displayHand();
 	}
 
 	bool isFlush() const {
-		if (hand.size() != 5) {
-			throw runtime_error("Hand must contain exactly 5 cards to check for a flush.");
-		}
+		validateHandSize();
 
 		int firstSuit = hand[0].getSuit();
 
@@ -207,8 +218,144 @@ public:
 		return true;
 	}
 
+	bool isStraight() const {
+		vector<int> rankList;
+		validateHandSize();
+
+		for (const Card& card : hand) {
+			int cardRank = card.getRank();
+			rankList.push_back(cardRank);
+
+		}
+		sort(rankList.begin(), rankList.end());
+		int lastRank = rankList.back();
+
+		// Special case: Ace acts as 1
+		if (rankList[0] == 2 &&
+			rankList[1] == 3 &&
+			rankList[2] == 4 &&
+			rankList[3] == 5 &&
+			rankList[4] == 14) {
+			return true;
+		}
+		// Check consecutive ranks
+		for (int i = 1; i < 5; ++i) {
+			int actualRank = rankList[i];
+			int previousRank = rankList[i - 1];
+
+			if (actualRank - previousRank != 1) {
+				return false;
+			}
+
+		}
+		return true;
+	}
+
+	int getFourOfAKindRank() const {
+		vector<int> counts = countRanks();
+
+		for (int rank = 2; rank <= 14; ++rank) {
+			if (counts[rank] == 4) {
+				return rank;
+			}
+		}
+
+		return 0;
+	}
+
+	int getThreeOfAKindRank() const {
+		vector<int> counts = countRanks();
+
+		for (int rank = 2; rank <= 14; ++rank) {
+			if (counts[rank] == 3) {
+				return rank;
+			}
+		}
+
+		return 0;
+	}
+
+	vector<int> getPairRanks() const { // it can be two pairs, so we return a vector of ranks
+		vector<int> counts = countRanks();
+		vector<int> pairRanks;
+
+		for (int rank = 14; rank >= 2; --rank) { // Start from the highest rank to get the highest pair first
+			if (counts[rank] == 2) {
+				pairRanks.push_back(rank);
+			}
+		}
+		return pairRanks;
+	}
+
+	bool isFullHouse() const {
+		vector<int> listOfPairs = getPairRanks();
+		int rankOfThrees = getThreeOfAKindRank();
+
+		return listOfPairs.size() == 1 && rankOfThrees != 0;
+	}
+
+	bool isStraightFlush() const {
+		// result of combining isStraight() i isFlush()
+		return isStraight() && isFlush();
+	}
+
+	HandRank evaluateHand() const {
+		if (isStraightFlush()) {
+			return HandRank::StraightFlush;
+		}
+		if (getFourOfAKindRank() != 0) {
+			return HandRank::FourOfAKind;
+		}
+		if (isFullHouse()) {
+			return HandRank::FullHouse;
+		}
+		if (isFlush()) {
+			return HandRank::Flush;
+		}
+		if (isStraight()) {
+			return HandRank::Straight;
+		}
+		if (getThreeOfAKindRank() != 0) {
+			return HandRank::ThreeOfAKind;
+		}
+
+		vector<int> pairRanks = getPairRanks();
+
+		if (pairRanks.size() == 2) {
+			return HandRank::TwoPairs;
+		}
+		if (pairRanks.size() == 1) {
+			return HandRank::OnePair;
+		}
+
+		return HandRank::HighCard;
+	}
+
+
+
 private:
 	vector<Card> hand;
+	vector<int> countRanks() const {
+		validateHandSize();
+		vector<int> counts(15, 0);
+
+		for (int i = 0; i < 5; i++)
+		{
+			int actualRank = hand[i].getRank();
+			++counts[actualRank];
+		}
+
+		return counts;
+	}
+
+	void validateHandSize() const {
+		if (hand.size() != 5) {
+			throw runtime_error("Hand must contain exactly 5 cards.");
+		}
+	}
+
+
+
 };
 
 
@@ -220,14 +367,26 @@ private:
 
 int main() {
 
-	Deck deck;
-	// cout << "Initial deck:" << endl;
-	//deck.display();
+#ifdef RUN_TESTS
+	Player testPlayer;
 
+	testPlayer.receiveCard(Card(5, 0));
+	testPlayer.receiveCard(Card(5, 1));
+	testPlayer.receiveCard(Card(5, 2));
+	testPlayer.receiveCard(Card(10, 0));
+	testPlayer.receiveCard(Card(10, 1));
+
+	if (testPlayer.evaluateHand() == HandRank::FullHouse) {
+		cout << "Full house detected correctly." << endl;
+	}
+	else {
+		cout << "Incorrect hand evaluation." << endl;
+	}
+#else
+
+	Deck deck;
 	deck.shuffleCards();
-	// cout << "Shuffled deck:" << endl;
-	// deck.display();
-	// cout << "Cards before drawing: " << deck.remainingCards() << endl;
+
 
 	Player player;
 	Player computer;
@@ -238,7 +397,11 @@ int main() {
 	}
 
 	player.exchangeCards(player, deck);
+
+#endif
+
 	return 0;
+
 }
 
 bool GetNumber(int minValue, int maxValue, int& number)
