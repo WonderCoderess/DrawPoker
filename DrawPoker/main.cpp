@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <utility>     // pair
+#include <functional>  // greater
 #define RUN_TESTS
 
 using namespace std;
@@ -18,8 +20,6 @@ public:
 
 	// Display the card's rank and suit in a human-readable format.
 	void display() const {
-
-		//cout << "Number Rank: " << rank << ", suit: " << suit << endl;
 
 		switch (rank) {
 		case (11):
@@ -75,8 +75,8 @@ class Deck {
 public:
 	// Constructor initializes the deck with 52 cards (13 ranks x 4 suits).
 	Deck() {
-		for (int s = 0; s < 4; ++s) { // Loop through suits
-			for (int r = 2; r <= 14; ++r) { // Loop through ranks
+		for (int s = 0; s < 4; ++s) { 
+			for (int r = 2; r <= 14; ++r) { 
 				cards.emplace_back(r, s);
 			}
 		}
@@ -98,6 +98,7 @@ public:
 		shuffle(cards.begin(), cards.end(), generator);
 	}
 
+	// Draw a card from the top of the deck. Throws an exception if the deck is empty.
 	Card drawCard() {
 		if (cards.empty()) {
 			throw runtime_error("Deck is empty. Cannot draw a card.");
@@ -108,15 +109,12 @@ public:
 		return drawnCard;
 	}
 
-	size_t remainingCards() const { // size_t is the appropriate type for sizes and counts
-		return (cards.size());
-	}
-
 private:
 	vector<Card> cards;
 };
 
-enum class HandRank { // on najsilniejszego
+// Enum representing the rank of a poker hand, ordered from weakest to strongest.
+enum class HandRank {
 	HighCard,
 	OnePair,
 	TwoPairs,
@@ -128,11 +126,15 @@ enum class HandRank { // on najsilniejszego
 	StraightFlush
 };
 
+// class Player represents a player in the poker game, holding a hand of cards and providing methods to evaluate the hand.
 class Player {
 public:
+	// Receive a card and add it to the player's hand.
 	void receiveCard(const Card& card) {
 		hand.push_back(card);
 	}
+
+	// Display the player's hand in a human-readable format.
 	void displayHand() const {
 		int number = 1;
 		cout << "Player's hand:" << endl;
@@ -142,6 +144,8 @@ public:
 			cout << endl;
 		}
 	}
+
+	// Replace a card in the player's hand at the specified index with a new card drawn from the deck.
 	void replaceCard(int index, Deck& deck) {
 		if (index <1 || index > hand.size()) {
 			throw out_of_range("Invalid card index");
@@ -153,6 +157,7 @@ public:
 		hand[index - 1] = deck.drawCard();
 	}
 
+	// Allow the player to exchange cards in their hand with new cards from the deck.
 	void exchangeCards(Player& player, Deck& deck) {
 		cout << "Your hand before exchange:" << endl;
 		player.displayHand();
@@ -196,7 +201,8 @@ public:
 
 			selectedCardsToReplace.push_back(cardNumber);
 		}
-		//Replace cards only after the selection is complete to avoid index issues
+
+		// Replace the selected cards with new cards from the deck
 		for (int cardIndex : selectedCardsToReplace) {
 			player.replaceCard(cardIndex, deck);
 
@@ -205,6 +211,7 @@ public:
 		player.displayHand();
 	}
 
+	// Check if the player's hand is a flush (all cards of the same suit).
 	bool isFlush() const {
 		validateHandSize();
 
@@ -218,7 +225,7 @@ public:
 		return true;
 	}
 
-
+	// Check if the player's hand is a straight (five consecutive ranks).
 	bool isStraight() const {
 		vector<int> rankList;
 		validateHandSize();
@@ -229,7 +236,6 @@ public:
 
 		}
 		sort(rankList.begin(), rankList.end());
-		int lastRank = rankList.back();
 
 		// Special case: Ace acts as 1
 		if (rankList[0] == 2 &&
@@ -252,6 +258,7 @@ public:
 		return true;
 	}
 
+	// Get the rank of the four of a kind in the player's hand, or return 0 if there is none.
 	int getFourOfAKindRank() const {
 		vector<int> counts = countRanks();
 
@@ -264,6 +271,7 @@ public:
 		return 0;
 	}
 
+	//	Get the rank of the three of a kind in the player's hand, or return 0 if there is none.
 	int getThreeOfAKindRank() const {
 		vector<int> counts = countRanks();
 
@@ -276,11 +284,12 @@ public:
 		return 0;
 	}
 
-	vector<int> getPairRanks() const { // it can be two pairs, so we return a vector of ranks
+	// Get the ranks of all pairs in the player's hand, returning a vector of ranks (can be more than one pair).
+	vector<int> getPairRanks() const { 
 		vector<int> counts = countRanks();
 		vector<int> pairRanks;
 
-		for (int rank = 14; rank >= 2; --rank) { // Start from the highest rank to get the highest pair first
+		for (int rank = 14; rank >= 2; --rank) { 
 			if (counts[rank] == 2) {
 				pairRanks.push_back(rank);
 			}
@@ -288,6 +297,7 @@ public:
 		return pairRanks;
 	}
 
+	// Check if the player's hand is a full house (three of a kind and a pair).
 	bool isFullHouse() const {
 		vector<int> listOfPairs = getPairRanks();
 		int rankOfThrees = getThreeOfAKindRank();
@@ -295,11 +305,13 @@ public:
 		return listOfPairs.size() == 1 && rankOfThrees != 0;
 	}
 
+	// Check if the player's hand is a straight flush (both a straight and a flush).
 	bool isStraightFlush() const {
 		// result of combining isStraight() i isFlush()
 		return isStraight() && isFlush();
 	}
 
+	// Evaluate the player's hand and return its rank as a HandRank enum value.
 	HandRank evaluateHand() const {
 		if (isStraightFlush()) {
 			return HandRank::StraightFlush;
@@ -332,8 +344,35 @@ public:
 		return HandRank::HighCard;
 	}
 
+	// Get the ranks of the cards in the player's hand for tie-breaking purposes, sorted by frequency and rank.
+	vector<int> getTieBreakRanks() const {
+		vector<int> counts = countRanks();
+		vector<pair<int, int>> groups; // (how many times, rank)
+
+		for (int rank = 14; rank >= 2; --rank) {
+			if (counts[rank] > 0) {
+				groups.push_back({ counts[rank], rank });
+			}
+		}
+		// Sort by count first, then by rank, both highest first
+		sort(groups.begin(), groups.end(), greater<pair<int, int>>());
+
+		vector<int> ranks;
+		for (const auto& group : groups) {
+			ranks.push_back(group.second);
+		}
+
+		// Special case: A, 2, 3, 4, 5 straight, Ace acts as 1
+		if (isStraight() && ranks[0] == 14 && ranks[1] == 5) {
+			ranks = { 5, 4, 3, 2, 1 };
+		}
+		return ranks;
+	}
+
 private:
 	vector<Card> hand;
+
+	// Count the occurrences of each rank in the player's hand, returning a vector where the index represents the rank and the value represents the count.
 	vector<int> countRanks() const {
 		validateHandSize();
 		vector<int> counts(15, 0);
@@ -347,16 +386,15 @@ private:
 		return counts;
 	}
 
+	// Validate that the player's hand contains exactly 5 cards, throwing an exception if not.
 	void validateHandSize() const {
 		if (hand.size() != 5) {
 			throw runtime_error("Hand must contain exactly 5 cards.");
 		}
 	}
-
-
-
 };
 
+// Compare the hands of two players and return 1 if the first player wins, -1 if the second player wins, or 0 for a tie.
 int compareHands(const Player& player, const Player& computer) {
 	HandRank playerRank = player.evaluateHand();
 	HandRank computerRank = computer.evaluateHand();
@@ -368,41 +406,58 @@ int compareHands(const Player& player, const Player& computer) {
 		return -1;
 	}
 
-	return 0;
+	vector<int> playerRanks = player.getTieBreakRanks();
+	vector<int> computerRanks = computer.getTieBreakRanks();
+
+	if (playerRanks > computerRanks) return 1;
+	if (playerRanks < computerRanks) return -1;
+	return 0; 
 }
 
-
-/*
-###### MAIN #######
-*/
+// ######## MAIN FUNCTION ########
 
 int main() {
 
 #ifdef RUN_TESTS
+
 	Player testPlayer;
+	
+	testPlayer.receiveCard(Card(13, 0));
+	testPlayer.receiveCard(Card(13, 1));
+	testPlayer.receiveCard(Card(14, 2));
+	testPlayer.receiveCard(Card(8, 0));
+	testPlayer.receiveCard(Card(2, 1));
+	testPlayer.displayHand();
 
-	testPlayer.receiveCard(Card(5, 0));
-	testPlayer.receiveCard(Card(5, 1));
-	testPlayer.receiveCard(Card(5, 2));
-	testPlayer.receiveCard(Card(10, 0));
-	testPlayer.receiveCard(Card(10, 1));
 
-	if (testPlayer.evaluateHand() == HandRank::FullHouse) {
-		cout << "Full house detected correctly." << endl;
-	}
-	else {
-		cout << "Incorrect hand evaluation." << endl;
-	}
 	Player testComputer;
 
-	testComputer.receiveCard(Card(14, 0));
-	testComputer.receiveCard(Card(14, 1));
-	testComputer.receiveCard(Card(8, 2));
-	testComputer.receiveCard(Card(6, 3));
+	testComputer.receiveCard(Card(13, 0));
+	testComputer.receiveCard(Card(13, 1));
+	testComputer.receiveCard(Card(14, 2));
+	testComputer.receiveCard(Card(8, 3));
 	testComputer.receiveCard(Card(2, 0));
+	testComputer.displayHand();
 
 	cout << compareHands(testPlayer, testComputer) << endl;
 	cout << compareHands(testComputer, testPlayer) << endl;
+
+	Player testPlayer1;
+	testPlayer1.receiveCard(Card(13, 0));
+	testPlayer1.receiveCard(Card(13, 1));
+	testPlayer1.receiveCard(Card(14, 2));
+	testPlayer1.receiveCard(Card(8, 3));
+	testPlayer1.receiveCard(Card(2, 0));
+
+	Player testComputer1;
+	testComputer1.receiveCard(Card(13, 2));
+	testComputer1.receiveCard(Card(13, 3));
+	testComputer1.receiveCard(Card(12, 0));
+	testComputer1.receiveCard(Card(9, 1));
+	testComputer1.receiveCard(Card(7, 2));
+
+	cout << compareHands(testPlayer1, testComputer1) << endl;
+	cout << compareHands(testComputer1, testPlayer1) << endl;
 
 #else
 
@@ -426,6 +481,7 @@ int main() {
 
 }
 
+// Get a number from the user within a specified range, returning true if successful and false if input ends.
 bool GetNumber(int minValue, int maxValue, int& number)
 {
 	while (true)
