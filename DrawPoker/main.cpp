@@ -218,6 +218,7 @@ public:
 		return true;
 	}
 
+
 	bool isStraight() const {
 		vector<int> rankList;
 		validateHandSize();
@@ -331,8 +332,6 @@ public:
 		return HandRank::HighCard;
 	}
 
-
-
 private:
 	vector<Card> hand;
 	vector<int> countRanks() const {
@@ -358,7 +357,19 @@ private:
 
 };
 
+int compareHands(const Player& player, const Player& computer) {
+	HandRank playerRank = player.evaluateHand();
+	HandRank computerRank = computer.evaluateHand();
 
+	if (playerRank > computerRank) {
+		return 1;
+	}
+	if (playerRank < computerRank) {
+		return -1;
+	}
+
+	return 0;
+}
 
 
 /*
@@ -382,6 +393,17 @@ int main() {
 	else {
 		cout << "Incorrect hand evaluation." << endl;
 	}
+	Player testComputer;
+
+	testComputer.receiveCard(Card(14, 0));
+	testComputer.receiveCard(Card(14, 1));
+	testComputer.receiveCard(Card(8, 2));
+	testComputer.receiveCard(Card(6, 3));
+	testComputer.receiveCard(Card(2, 0));
+
+	cout << compareHands(testPlayer, testComputer) << endl;
+	cout << compareHands(testComputer, testPlayer) << endl;
+
 #else
 
 	Deck deck;
