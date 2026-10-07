@@ -7,11 +7,29 @@
 #include <sstream>
 #include <utility>     // pair
 #include <functional>  // greater
-#define RUN_TESTS
+//#define RUN_TESTS
 
 using namespace std;
 
+// Function to get a number from the user within a specified range. Returns true if successful, false if input ends.
 bool GetNumber(int minValue, int maxValue, int& number);
+
+// Return a human-readable name of a card rank.
+string rankName(int rank) {
+	switch (rank) {
+	case 1:
+	case 14:
+		return "Ace";
+	case 13:
+		return "King";
+	case 12:
+		return "Queen";
+	case 11:
+		return "Jack";
+	default:
+		return to_string(rank);
+	}
+}
 
 // class Card represents a single playing card with a rank and suit.
 class Card {
@@ -75,8 +93,8 @@ class Deck {
 public:
 	// Constructor initializes the deck with 52 cards (13 ranks x 4 suits).
 	Deck() {
-		for (int s = 0; s < 4; ++s) { 
-			for (int r = 2; r <= 14; ++r) { 
+		for (int s = 0; s < 4; ++s) {
+			for (int r = 2; r <= 14; ++r) {
 				cards.emplace_back(r, s);
 			}
 		}
@@ -164,6 +182,14 @@ public:
 		hand[index - 1] = deck.drawCard();
 	}
 
+	// Replace a card in the computer's hand at the specified index with a new card drawn from the deck.
+	void replaceComputerCard(int index, Deck& deck) {
+		if (index < 0 || index >= hand.size()) {
+			throw out_of_range("Invalid card index");
+		}
+		hand[index] = deck.drawCard();
+	}
+
 	// Allow the player to exchange cards in their hand with new cards from the deck.
 	// Returns false if input ended before the exchange was finished.
 	bool exchangeCards(Player& player, Deck& deck) {
@@ -218,6 +244,52 @@ public:
 		cout << "Hand after exchange:" << endl;
 		player.displayHand();
 		return true;
+	}
+
+	// Allow the computer to exchange cards in its hand based on a simple strategy.
+	void exchangeComputerCards(Deck& deck) {
+		HandRank currentRank = evaluateHand();
+		vector<int> counts = countRanks();
+
+		switch (currentRank)
+		{
+		case HandRank::StraightFlush:
+		case HandRank::Flush:
+		case HandRank::FullHouse:
+		case HandRank::Straight:
+			cout << "Computer keeps all its cards." << endl;
+			break; // Keep all cards
+
+		case HandRank::FourOfAKind:
+		case HandRank::ThreeOfAKind:
+		case HandRank::OnePair:
+		case HandRank::TwoPairs:
+
+			for (int i = 0; i < 5; ++i) {
+				int cardRank = hand[i].getRank();
+				if (counts[cardRank] == 1) {
+					replaceComputerCard(i, deck); // Replace single cards
+					cout << "Computer replaces card " << (i + 1) << " with a new card from the deck." << endl;
+				}
+			}
+			break;
+
+		default: {
+			// Keep the highest card and exchange the other four
+			int highestCardIndex = 0;
+			for (int i = 1; i < 5; ++i) {
+				if (hand[i].getRank() > hand[highestCardIndex].getRank()) {
+					highestCardIndex = i;
+				}
+			}
+			for (int i = 0; i < 5; ++i) {
+				if (i != highestCardIndex) {
+					replaceComputerCard(i, deck);
+					cout << "Computer replaces card " << (i + 1) << " with a new card from the deck." << endl;
+				}
+			}
+		}
+		}
 	}
 
 	// Check if the player's hand is a flush (all cards of the same suit).
@@ -294,11 +366,11 @@ public:
 	}
 
 	// Get the ranks of all pairs in the player's hand, returning a vector of ranks (can be more than one pair).
-	vector<int> getPairRanks() const { 
+	vector<int> getPairRanks() const {
 		vector<int> counts = countRanks();
 		vector<int> pairRanks;
 
-		for (int rank = 14; rank >= 2; --rank) { 
+		for (int rank = 14; rank >= 2; --rank) {
 			if (counts[rank] == 2) {
 				pairRanks.push_back(rank);
 			}
@@ -450,6 +522,90 @@ string handRankName(HandRank rank) {
 	}
 }
 
+// Explain the result of a showdown between two players, providing details about the hand ranks and tie-breaking factors.
+string explainResult(const Player& player, const Player& computer) {
+	HandRank playerRank = player.evaluateHand();
+	HandRank computerRank = computer.evaluateHand();
+	ostringstream message;
+
+	if (playerRank != computerRank) {
+		message << "The winner is determined by the hand category. "
+			<< "Player: " << handRankName(playerRank)
+			<< ", Computer: " << handRankName(computerRank);
+
+		return message.str();
+	}
+
+	message << "Both players have " << handRankName(playerRank) << ". ";
+
+	vector<int> playerRanks = player.getTieBreakRanks();
+	vector<int> computerRanks = computer.getTieBreakRanks();
+
+	for (size_t i = 0; i < playerRanks.size(); ++i) {
+		if (playerRanks[i] == computerRanks[i]) {
+			continue;
+		}
+
+		string reason;
+
+		switch (playerRank) {
+		case HandRank::OnePair:
+			reason = (i == 0) ? "pair rank" : "kicker";
+			break;
+
+		case HandRank::TwoPairs:
+			if (i == 0) {
+				reason = "higher pair rank";
+			}
+			else if (i == 1) {
+				reason = "lower pair rank";
+			}
+			else {
+				reason = "kicker";
+			}
+			break;
+
+		case HandRank::ThreeOfAKind:
+			reason = (i == 0) ? "three-of-a-kind rank" : "kicker";
+			break;
+
+		case HandRank::FullHouse:
+			reason = (i == 0) ? "three-of-a-kind rank" : "pair rank";
+			break;
+
+		case HandRank::FourOfAKind:
+			reason = (i == 0) ? "four-of-a-kind rank" : "kicker";
+			break;
+
+		case HandRank::Straight:
+		case HandRank::StraightFlush:
+			reason = "highest card of the straight";
+			break;
+
+		default:
+			reason = "highest differing card";
+			break;
+		}
+
+		message << "The deciding factor is the " << reason
+			<< ". Player: " << rankName(playerRanks[i])
+			<< ", Computer: " << rankName(computerRanks[i])
+			<< ". ";
+
+		if (playerRanks[i] > computerRanks[i]) {
+			message << "The player's value is higher.";
+		}
+		else {
+			message << "The computer's value is higher.";
+		}
+
+		return message.str();
+	}
+
+	message << "All tie-break values are equal.";
+	return message.str();
+}
+
 // class Game controls the flow of the game: dealing, exchanging cards, showdown and starting the next round.
 class Game {
 public:
@@ -457,7 +613,7 @@ public:
 
 	// Main game loop: play rounds until the player stops or input ends.
 	void run() {
-		cout << "Welcome to Draw Poker!" << endl;
+		cout << "Let's play Draw Poker!" << endl;
 
 		int roundNumber = 1;
 		while (true) {
@@ -511,9 +667,9 @@ private:
 		return player.exchangeCards(player, deck);
 	}
 
-	// The computer has no exchange strategy yet, so it keeps its cards.
+	// Let computer exchange cards.
 	void computerTurn() {
-		cout << endl << "Computer keeps all its cards." << endl;
+		computer.exchangeComputerCards(deck);
 	}
 
 	// Reveal both hands, compare them and announce the result.
@@ -521,12 +677,14 @@ private:
 		cout << endl << "===== Showdown =====" << endl;
 
 		player.displayHand();
-		cout << "-> " << handRankName(player.evaluateHand()) << endl << endl;
+		cout << "Player's hand: " << handRankName(player.evaluateHand()) << endl << endl;
 
 		computer.displayHand();
-		cout << "-> " << handRankName(computer.evaluateHand()) << endl << endl;
+		cout << "Computer's hand: " << handRankName(computer.evaluateHand()) << endl << endl;
 
 		int result = compareHands(player, computer);
+
+
 		if (result > 0) {
 			cout << "You win!" << endl;
 		}
@@ -536,6 +694,8 @@ private:
 		else {
 			cout << "It's a draw!" << endl;
 		}
+
+		cout << explainResult(player, computer) << endl;
 	}
 
 	// Ask whether to play another round. Returns false if the player says no or input ends.
@@ -557,7 +717,7 @@ int main() {
 #ifdef RUN_TESTS
 
 	Player testPlayer;
-	
+
 	testPlayer.receiveCard(Card(13, 0));
 	testPlayer.receiveCard(Card(13, 1));
 	testPlayer.receiveCard(Card(14, 2));
