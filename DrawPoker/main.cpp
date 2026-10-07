@@ -129,15 +129,22 @@ enum class HandRank {
 // class Player represents a player in the poker game, holding a hand of cards and providing methods to evaluate the hand.
 class Player {
 public:
+	explicit Player(const string& playerName = "Player") : name(playerName) {}
+
 	// Receive a card and add it to the player's hand.
 	void receiveCard(const Card& card) {
 		hand.push_back(card);
 	}
 
+	// Remove all cards from the player's hand before a new round.
+	void clearHand() {
+		hand.clear();
+	}
+
 	// Display the player's hand in a human-readable format.
 	void displayHand() const {
 		int number = 1;
-		cout << "Player's hand:" << endl;
+		cout << name << "'s hand:" << endl;
 		for (const Card& card : hand) {
 			cout << "Card " << number++ << ": ";
 			card.display();
@@ -158,7 +165,8 @@ public:
 	}
 
 	// Allow the player to exchange cards in their hand with new cards from the deck.
-	void exchangeCards(Player& player, Deck& deck) {
+	// Returns false if input ended before the exchange was finished.
+	bool exchangeCards(Player& player, Deck& deck) {
 		cout << "Your hand before exchange:" << endl;
 		player.displayHand();
 
@@ -166,12 +174,12 @@ public:
 		cout << "How many cards would you like to exchange? (0-5)" << endl;
 
 		if (!GetNumber(0, 5, count)) {
-			return;
+			return false;
 		}
 
 		if (count == 0) {
 			cout << "You keep all your cards." << endl;
-			return;
+			return true;
 		}
 
 		vector<int> selectedCardsToReplace;
@@ -183,7 +191,7 @@ public:
 
 			cout << "Enter the number of the card to exchange (1-5):" << endl;
 			if (!GetNumber(1, 5, cardNumber)) {
-				return;
+				return false;
 			}
 
 			for (int cardIndex : selectedCardsToReplace) {
@@ -207,8 +215,9 @@ public:
 			player.replaceCard(cardIndex, deck);
 
 		}
-		cout << "Player's hand after exchange:" << endl;
+		cout << "Hand after exchange:" << endl;
 		player.displayHand();
+		return true;
 	}
 
 	// Check if the player's hand is a flush (all cards of the same suit).
@@ -370,6 +379,7 @@ public:
 	}
 
 private:
+	string name;
 	vector<Card> hand;
 
 	// Count the occurrences of each rank in the player's hand, returning a vector where the index represents the rank and the value represents the count.
@@ -411,8 +421,134 @@ int compareHands(const Player& player, const Player& computer) {
 
 	if (playerRanks > computerRanks) return 1;
 	if (playerRanks < computerRanks) return -1;
-	return 0; 
+	return 0;
 }
+
+// Return a human-readable name of a hand rank.
+string handRankName(HandRank rank) {
+	switch (rank) {
+	case HandRank::HighCard:
+		return "High card";
+	case HandRank::OnePair:
+		return "One pair";
+	case HandRank::TwoPairs:
+		return "Two pairs";
+	case HandRank::ThreeOfAKind:
+		return "Three of a kind";
+	case HandRank::Straight:
+		return "Straight";
+	case HandRank::Flush:
+		return "Flush";
+	case HandRank::FullHouse:
+		return "Full house";
+	case HandRank::FourOfAKind:
+		return "Four of a kind";
+	case HandRank::StraightFlush:
+		return "Straight flush";
+	default:
+		return "Unknown hand";
+	}
+}
+
+// class Game controls the flow of the game: dealing, exchanging cards, showdown and starting the next round.
+class Game {
+public:
+	Game() : player("Player"), computer("Computer") {}
+
+	// Main game loop: play rounds until the player stops or input ends.
+	void run() {
+		cout << "Welcome to Draw Poker!" << endl;
+
+		int roundNumber = 1;
+		while (true) {
+			cout << endl << "===== Round " << roundNumber++ << " =====" << endl;
+
+			if (!playRound()) {
+				break;
+			}
+			if (!askPlayAgain()) {
+				break;
+			}
+		}
+
+		cout << "Thanks for playing!" << endl;
+	}
+
+private:
+	Deck deck;
+	Player player;
+	Player computer;
+
+	// Play a single round. Returns false if input ended during the round.
+	bool playRound() {
+		startRound();
+
+		if (!playerTurn()) {
+			return false;
+		}
+		computerTurn();
+		showdown();
+
+		return true;
+	}
+
+	// Prepare a new shuffled deck and deal five cards to each participant.
+	void startRound() {
+		deck = Deck();
+		deck.shuffleCards();
+
+		player.clearHand();
+		computer.clearHand();
+
+		for (int i = 0; i < 5; ++i) {
+			player.receiveCard(deck.drawCard());
+			computer.receiveCard(deck.drawCard());
+		}
+	}
+
+	// Let the player exchange cards.
+	bool playerTurn() {
+		return player.exchangeCards(player, deck);
+	}
+
+	// The computer has no exchange strategy yet, so it keeps its cards.
+	void computerTurn() {
+		cout << endl << "Computer keeps all its cards." << endl;
+	}
+
+	// Reveal both hands, compare them and announce the result.
+	void showdown() {
+		cout << endl << "===== Showdown =====" << endl;
+
+		player.displayHand();
+		cout << "-> " << handRankName(player.evaluateHand()) << endl << endl;
+
+		computer.displayHand();
+		cout << "-> " << handRankName(computer.evaluateHand()) << endl << endl;
+
+		int result = compareHands(player, computer);
+		if (result > 0) {
+			cout << "You win!" << endl;
+		}
+		else if (result < 0) {
+			cout << "Computer wins!" << endl;
+		}
+		else {
+			cout << "It's a draw!" << endl;
+		}
+	}
+
+	// Ask whether to play another round. Returns false if the player says no or input ends.
+	bool askPlayAgain() {
+		int answer = 0;
+		cout << endl << "Play another round? (1 = yes, 0 = no)" << endl;
+
+		if (!GetNumber(0, 1, answer)) {
+			return false;
+		}
+		return answer == 1;
+	}
+};
 
 // ######## MAIN FUNCTION ########
 
@@ -461,19 +597,8 @@ int main() {
 
 #else
 
-	Deck deck;
-	deck.shuffleCards();
-
-
-	Player player;
-	Player computer;
-
-	for (int i = 0; i < 5; ++i) {
-		player.receiveCard(deck.drawCard());
-		computer.receiveCard(deck.drawCard());
-	}
-
-	player.exchangeCards(player, deck);
+	Game game;
+	game.run();
 
 #endif
 

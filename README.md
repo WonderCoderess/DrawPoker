@@ -4,9 +4,9 @@ A text-based draw poker project written in C++, developed step by step to practi
 
 ## Project status
 
-Work in progress. The project currently supports dealing and player card exchange, with hand-category evaluation implemented separately. It does not yet compare two hands, announce a winner or support betting.
+Work in progress. The game runs in a loop of rounds: dealing, player card exchange, a showdown with a winner announcement, and a prompt to play another round. It does not support betting yet.
 
-The source currently defines `RUN_TESTS`, so the program runs a full house check instead of the interactive card exchange.
+The source currently defines `RUN_TESTS`, so the program runs hand comparison checks instead of the interactive game.
 
 ## Implemented features
 
@@ -19,7 +19,9 @@ The source currently defines `RUN_TESTS`, so the program runs a full house check
 - Integer input validation, range checks and rejection of duplicate selections.
 - Five-card hand validation and detection of all nine hand categories.
 - Support for both ace-low (`A-2-3-4-5`) and ace-high (`10-J-Q-K-A`) straights.
-- A compile-time test mode containing one full house check.
+- Comparison of two hands, including tie-breakers and draws.
+- A game loop with a showdown, winner announcement and multiple rounds.
+- A compile-time test mode containing hand comparison checks.
 
 ## Hand categories
 
@@ -35,7 +37,7 @@ The source currently defines `RUN_TESTS`, so the program runs a full house check
 8. Four of a kind
 9. Straight flush
 
-A royal flush belongs to the straight flush category. `evaluateHand()` checks stronger categories first. Comparing card values within the same category is not implemented yet.
+A royal flush belongs to the straight flush category. `evaluateHand()` checks stronger categories first. Hands of the same category are compared with `getTieBreakRanks()`.
 
 ## Code structure
 
@@ -45,7 +47,9 @@ The implementation is currently contained in `DrawPoker/main.cpp`.
 | --- | --- |
 | `Card` | Stores and displays a card's rank and suit. |
 | `Deck` | Creates, shuffles and manages the deck. |
-| `Player` | Stores a hand, handles card exchange and evaluates hand categories. |
+| `Player` | Stores a named hand, handles card exchange and evaluates hand categories. |
+| `compareHands()` | Compares two hands and returns `1`, `-1` or `0`. |
+| `Game` | Runs the game loop: starting a round, the player's and computer's turns, the showdown and asking for another round. |
 | `HandRank` | Represents the supported hand categories. |
 | `GetNumber()` | Reads a whole-line integer input and validates its range. |
 
@@ -99,14 +103,12 @@ Comment out the definition and rebuild:
 // #define RUN_TESTS
 ```
 
-The program shuffles the deck and deals five cards to each participant. Enter how many cards to exchange (`0-5`), then enter each selected card number (`1-5`) on a separate line. Repeated selections are rejected. After all selections are collected, the program replaces those cards and displays the updated hand.
+Each round, the program shuffles a fresh deck and deals five cards to each participant. Enter how many cards to exchange (`0-5`), then enter each selected card number (`1-5`) on a separate line. Repeated selections are rejected. After all selections are collected, the program replaces those cards and displays the updated hand.
 
-The computer currently receives cards but does not make decisions. The interactive program ends after the player's exchange.
+The computer currently keeps all its cards. In the showdown both hands and their categories are shown and the winner is announced. Enter `1` to play another round or `0` to quit.
 
 ## Planned features
 
-- Comparison of player and computer hands, including tie-breakers and draws.
 - A simple computer card-exchange strategy.
-- Winner announcements and multiple rounds.
 - Betting with chips, a pot, checking, calling, raising and folding.
 - Additional checks covering all hand categories and edge cases.
